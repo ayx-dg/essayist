@@ -6,6 +6,12 @@ A lightweight static site generator for Markdown blogs, powered by
 Convert a directory of Markdown posts (with YAML front matter) into a styled
 HTML blog with an index page and an RSS feed.
 
+Both halves of the pipeline are pluggable. Swap the bundled Jinja2 templates for
+your own with `template_dir`, and extend the Pandoc step with any
+[Pandoc filter](https://pandoc.org/filters.html): drop `*.lua` files into a
+`filters/` folder to have them picked up automatically, or name them — bundled
+or local — in `filters`.
+
 ## Requirements
 
 - Python ≥ 3.10
@@ -51,6 +57,7 @@ Save this as `essayist.toml` in your project root:
 ```toml
 markdown_dir = "markdown/posts"
 post_dir     = "public/posts"
+# template_dir = "templates"        # omit to use the bundled templates
 blogname     = "My Blog"
 site_url     = "https://example.com"
 panargs      = ["--mathml", "--toc", "--shift-heading-level-by=1"]
@@ -105,7 +112,9 @@ CLI flags override the corresponding config-file values:
 | `--template-dir` | Custom Jinja2 template directory   |
 | `--blogname`     | Blog name for page titles          |
 | `--site-url`     | Base URL for RSS feeds             |
-| `--gallery`      | Enable the gallery Lua filter      |
+| `--filter`       | Pandoc filter (repeatable)         |
+| `--filter-dir`   | Directory scanned for `*.lua` filters |
+| `--gallery`      | Shorthand for `--filter gallery`   |
 
 ## Python API
 
@@ -147,7 +156,9 @@ All keys in `essayist.toml`:
 | `google_group_id` | string      | `""`              | Enables the email-comment block in posts           |
 | `site_url`        | string      | `https://example.com` | Base URL used in RSS `<link>` tags            |
 | `panargs`         | array       | `[]`              | Extra flags passed to Pandoc                       |
-| `gallery`         | bool        | `false`           | Enable the bundled image-gallery Lua filter        |
+| `filters`         | array       | `[]`              | Pandoc filters: path, name in `filter_dir`, or bundled name |
+| `filter_dir`      | string      | `filters`         | Directory scanned for `*.lua` Pandoc filters       |
+| `gallery`         | bool        | `false`           | Shorthand for `filters = ["gallery"]`              |
 | `build_index`     | bool        | `true`            | Generate the post-list index page                  |
 | `index_title`     | string      | `Index`           | Title for the index page                           |
 | `build_rss`       | bool        | `true`            | Generate an RSS 2.0 feed                           |
@@ -191,17 +202,67 @@ The package ships with five default templates:
 | `index.html`  | Post listing (all public posts)|
 | `home.html`   | Home / landing page             |
 
-Supply a `template_dir` in your config to override any of these. The templates
-use [Jinja2](https://jinja.palletsprojects.com/) syntax and receive variables
-like `heading`, `paragraphs`, `title`, `prev_post`, `next_post`, etc.
+Set `template_dir` in your config (or pass `--template-dir`) to override them:
 
-## Bundled Lua filters
+```toml
+template_dir = "templates"
+```
+
+```bash
+essayist build --template-dir templates
+```
+
+The lookup is a **plain replacement, not an overlay**: once `template_dir` is
+set the bundled templates are no longer searched, so the directory has to
+contain every template the build needs (`post.html`, `index.html`,
+`header.html`, `footer.html`, plus `home.html` if you render a home page).
+Start by copying the bundled ones:
+
+```bash
+python -c "from essayist import Blog; print(Blog._bundled_templates())"
+```
+
+The templates use [Jinja2](https://jinja2.palletsprojects.com/) syntax and
+receive variables like `heading`, `paragraphs`, `title`, `prev_post`,
+`next_post`, etc.
+
+## Pandoc filters
+
+Any [Pandoc filter](https://pandoc.org/filters.html) can be used. Filters are
+collected from three sources, deduplicated and applied in this order:
+
+1. `gallery = true` — shorthand for the bundled `gallery` filter
+2. `filters = [...]` — explicit entries
+3. every `*.lua` file inside `filter_dir`
+
+```toml
+filter_dir = "filters"                 # scanned for *.lua, in name order
+filters    = ["gallery", "uppercase"]  # path, file in filter_dir, or bundled
+```
+
+Each `filters` entry is resolved in turn as:
+
+1. a path (absolute, or relative to the working directory)
+2. a file inside `filter_dir`, with or without the `.lua` suffix
+3. a filter bundled with essayist
+
+`.lua` files are passed to Pandoc with `--lua-filter`; anything else is treated
+as a JSON-filter executable and passed with `--filter`.
+
+On the CLI, `--filter` is repeatable and `--filter-dir` overrides the config:
+
+```bash
+essayist build --filter gallery --filter ./filters/uppercase.lua
+```
+
+### Bundled filters
 
 | Filter       | Description                              |
 |-------------|------------------------------------------|
 | `gallery.lua` | Groups images in a paragraph into a responsive flex gallery |
 
-Enable with `gallery = true` in config, or pass `--gallery` on the CLI.
+Enable one with `filters = ["gallery"]` (or the `--gallery` / `--filter gallery`
+shorthand).
 
 ## Development
 
