@@ -11,7 +11,7 @@
 
    {% if google_group_id %}
    {% if maillist_title %}
-   <a href="mailto://mailto:{{google_group_id}}@googlegroups.com?subject=Re:{{maillist_title}}" class='uri'> [Comment via email! ]</a>
+   <a href="mailto:{{google_group_id}}@googlegroups.com?subject=Re:{{maillist_title | urlencode}}" class='uri'> [Comment via email! ]</a>
    <p> Comments for this post are in the <a href="{{google_group_link}}" class='uri'> [mail list thread] </a>.  </p>
 {% endif %}
 {% endif %}

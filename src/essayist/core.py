@@ -332,7 +332,7 @@ class Blog:
   xmlns:admin="http://webns.net/mvcb/"
   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
   <channel>
-    <title>{site_url}</title>
+    <title>{title}</title>
     <atom:link href="{site_url}/rss.xml" rel="self" type="application/rss+xml" />
     {items}
   </channel>
@@ -340,7 +340,9 @@ class Blog:
 
         items = ""
         for post in sorted(data, key=lambda x: x.get("ctime", ""), reverse=True):
-            if post.get("publish") in ("draft", "unlisted"):
+            # Only drafts are hidden: "unlisted" posts are served in the feed
+            # but kept out of the index page.
+            if post.get("publish") == "draft":
                 continue
             with open(post["md_path"], "r") as pf:
                 body = pandoc(pf.read(), ["--mathml", "-V", "title:"])
@@ -355,7 +357,11 @@ class Blog:
                 <guid>{link}</guid>
             </item>"""
 
-        rss_output = rss_template.format(site_url=site_url, items=items)
+        rss_output = rss_template.format(
+            title=self.meta.get("blogname") or site_url,
+            site_url=site_url,
+            items=items,
+        )
         os.makedirs(os.path.dirname(rss_path), exist_ok=True)
         with open(rss_path, "w") as f:
             f.write(rss_output)
