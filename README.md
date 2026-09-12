@@ -228,41 +228,68 @@ receive variables like `heading`, `paragraphs`, `title`, `prev_post`,
 
 ## Pandoc filters
 
-Any [Pandoc filter](https://pandoc.org/filters.html) can be used. Filters are
-collected from three sources, deduplicated and applied in this order:
+Any [Pandoc filter](https://pandoc.org/filters.html) can be used. There are
+three ways to point essayist at one; all of them are merged into one
+deduplicated list of flags.
 
-1. `gallery = true` — shorthand for the bundled `gallery` filter
-2. `filters = [...]` — explicit entries
-3. every `*.lua` file inside `filter_dir`
+| Source | Set via | What it contributes |
+|--------|---------|---------------------|
+| `gallery = true` | config / `--gallery` | the bundled `gallery` filter |
+| `filters = [...]` | config / `--filter` (repeatable) | explicit entries, resolved below |
+| `filter_dir` | config / `--filter-dir` | every `*.lua` file inside, in name order |
 
 ```toml
-filter_dir = "filters"                 # scanned for *.lua, in name order
-filters    = ["gallery", "uppercase"]  # path, file in filter_dir, or bundled
+filter_dir = "filters"                 # default: "filters"
+filters    = ["gallery", "uppercase"]
 ```
-
-Each `filters` entry is resolved in turn as:
-
-1. a path (absolute, or relative to the working directory)
-2. a file inside `filter_dir`, with or without the `.lua` suffix
-3. a filter bundled with essayist
-
-`.lua` files are passed to Pandoc with `--lua-filter`; anything else is treated
-as a JSON-filter executable and passed with `--filter`.
-
-On the CLI, `--filter` is repeatable and `--filter-dir` overrides the config:
 
 ```bash
 essayist build --filter gallery --filter ./filters/uppercase.lua
 ```
 
-### Bundled filters
+### How a `filters` entry is resolved
 
-| Filter       | Description                              |
-|-------------|------------------------------------------|
-| `gallery.lua` | Groups images in a paragraph into a responsive flex gallery |
+Each entry is looked up in this order and the first match wins:
 
-Enable one with `filters = ["gallery"]` (or the `--gallery` / `--filter gallery`
-shorthand).
+1. **a path** — `"./filters/uppercase.lua"`, `/opt/filters/x.lua`
+2. **a file inside `filter_dir`** — `uppercase` becomes
+   `<filter_dir>/uppercase.lua` (the `.lua` suffix is optional)
+3. **a bundled filter** — see below
+
+### What "bundled" means
+
+A bundled filter is one that ships *inside the installed package*, in the
+`filters/` directory of the `essayist` distribution. You refer to it by its file
+name without the `.lua` suffix. To see which ones you have:
+
+```bash
+python -c "from essayist import Blog; print(Blog.bundled_filters())"
+# ['gallery.lua']
+```
+
+| Bundled name | File          | Description |
+|--------------|---------------|-------------|
+| `gallery`    | `gallery.lua` | Groups images in a paragraph into a responsive flex gallery |
+
+So `filters = ["gallery"]`, `gallery = true` and `--gallery` all mean the same
+thing: use the filter packaged at `.../essayist/filters/gallery.lua`.
+
+Bundled names are checked **last**, which means a filter of your own called
+`filters/gallery.lua` shadows the bundled one — that is how you replace a
+bundled filter without patching the package.
+
+To contribute a new bundled filter, drop a `*.lua` file into
+`src/essayist/filters/`; its file name minus `.lua` becomes the bundled name. No
+code change is required.
+
+### Lua vs JSON filters
+
+`.lua` files are passed to Pandoc with `--lua-filter`; anything else is treated
+as a JSON-filter executable and passed with `--filter`.
+
+`filter_dir` only auto-discovers `*.lua`. Other filter types must be listed
+explicitly in `filters`, so that arbitrary executables sitting in that directory
+are never run by accident.
 
 ## Development
 
