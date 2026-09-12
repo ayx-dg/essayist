@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+    {% include "header.html" %}
+<body>
+<div class="prose mx-auto" >
+<header id="title-block-header"> <h1 class="leading-loose" >
+    {{ heading }}
+</h1> </header>
+    {{ paragraphs }}
+
+
+   {% if google_group_id %}
+   {% if maillist_title %}
+   <a href="mailto://mailto:{{google_group_id}}@googlegroups.com?subject=Re:{{maillist_title}}" class='uri'> [Comment via email! ]</a>
+   <p> Comments for this post are in the <a href="{{google_group_link}}" class='uri'> [mail list thread] </a>.  </p>
+{% endif %}
+{% endif %}
+
+{% if prev_post or next_post %}
+<nav class="post-nav" aria-label="Previous / Next post">
+    {% if next_post %}
+    <a class="post-nav-next" href="{{ next_post.html_path }}">Next: {{ next_post.title }}</a>
+    {% else %}
+    <span class="post-nav-placeholder" aria-hidden="true"></span>
+    {% endif %}
+    {% if prev_post %}
+    <a class="post-nav-prev" href="{{ prev_post.html_path }}">Previous: {{ prev_post.title }}</a>
+    {% else %}
+    <span class="post-nav-placeholder" aria-hidden="true"></span>
+    {% endif %}
+</nav>
+{% endif %}
+<a class="back-home" href="/posts" aria-label="Back to home" title="Back to home">Back to home</a>
+</div>
+
+</body>
+</html>

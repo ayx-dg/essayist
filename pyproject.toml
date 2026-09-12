@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "essayist"
+version = "0.1.0"
+description = "A Pandoc + Jinja2 static site generator for Markdown blogs."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "ayx-dg" }]
+keywords = ["static-site-generator", "blog", "markdown", "pandoc", "jinja2"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Internet :: WWW/HTTP :: Site Management",
+]
+dependencies = [
+    "jinja2",
+    "pyyaml",
+    'tomli; python_version < "3.11"',
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+essayist = "essayist.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ayx-dg/essayist"
+Repository = "https://github.com/ayx-dg/essayist"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+essayist = ["templates/*.html", "filters/*.lua", "style-note.css", "py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

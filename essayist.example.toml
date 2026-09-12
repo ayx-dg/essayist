@@ -1,0 +1,31 @@
+# Example essayist configuration (essayist.toml)
+# Copy this to your project root and adjust the paths.
+
+markdown_dir = "markdown/posts"      # directory with *.md posts
+post_dir    = "public/posts"         # output directory for rendered posts
+# template_dir = "templates"         # omit to use the bundled templates
+
+blogname         = "My Blog"
+google_group_id = ""                 # optional, enables the email-comment block
+site_url         = "https://example.com"
+
+# Extra pandoc arguments passed when rendering posts.
+panargs = ["--mathml", "--toc"]
+
+# Enable the bundled gallery lua filter (images in one paragraph -> gallery).
+gallery = false
+
+build_index = true
+index_title = "All Posts"
+build_rss   = true
+rss_path    = "public/posts/rss.xml"
+
+# Optional home page (rendered from a markdown file).
+home_md      = "markdown/index.md"
+home_template = "home.html"
+home_output  = "public/index.html"
+
+# Optional stylesheet copied next to the posts (path to your own css file).
+# style_css = "style-note.css"
+
+data_path = "data.json"

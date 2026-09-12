@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+
+<html lang="">
+{% include "header.html" %}
+<body>
+
+
+  <nav>
+    <a href="">{{ title }}</a>
+  </nav>
+
+
+    <div class="article-section mx-auto max-w-prose">
+      <ul >
+    {% for post in posts %}
+
+    <li>
+ <a href="{{ post.html_path }}" >
+            <i >
+            {{ post.ctime }}
+            </i>
+    {{ post.title }}
+  </a>
+</li>
+    {% endfor %}
+  </ul>
+</div>
+{% include "footer.html" %}
+{{ path }}
+<script src="/script.js"></script>
+</body>
+</html>
