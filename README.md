@@ -71,6 +71,23 @@ essayist build
 
 Output will be written to `public/`. Open `public/index.html` in a browser.
 
+## Live demo
+
+A demo blog built with `essayist build` is deployed at
+<https://essayist-demo.netlify.app>. It exercises the features described below:
+MathML maths, a Pandoc table of contents, the `gallery.lua` image gallery,
+`prev`/`next` post navigation, an index page and an RSS feed.
+
+| Page | URL |
+|------|-----|
+| Home | <https://essayist-demo.netlify.app/> |
+| Post index | <https://essayist-demo.netlify.app/posts/> |
+| RSS feed | <https://essayist-demo.netlify.app/posts/rss.xml> |
+
+The demo contains one `draft` post (never rendered) and one `unlisted` post
+(served in the feed, hidden from the index), so the visibility rules under
+[Post front matter](#post-front-matter) can be checked against the live site.
+
 ## CLI usage
 
 ```
