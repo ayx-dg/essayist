@@ -63,15 +63,17 @@ def test_update_data_indexes_posts_sorted_by_date(site):
     blog.update_data()
     with open(site / "data.json") as f:
         data = json.load(f)
-    assert len(data) == 3
+    assert len(data) == 4
     titles = [p["title"] for p in data]
     assert titles == [
         "Welcome to SimpleBlog",
         "Second Sample Post",
         "Draft Post",
+        "Unlisted Sample Post",
     ]
     assert data[0]["html_path"] == "/posts/1.html"
     assert data[2]["publish"] == "draft"
+    assert data[3]["publish"] == "unlisted"
 
 
 def test_name_a_file_maps_round_trip(site):
@@ -130,6 +132,8 @@ def test_build_posts_skips_drafts_and_creates_html(site):
     assert "2.html" in posts
     # draft post is index 3 and must not be rendered
     assert "3.html" not in posts
+    # unlisted post is index 4: rendered, even though it is hidden from index
+    assert "4.html" in posts
 
 
 def test_build_index_lists_only_public_posts(site):
@@ -139,9 +143,11 @@ def test_build_index_lists_only_public_posts(site):
     html = (site / "public" / "posts" / "index.html").read_text()
     assert "Second Sample Post" in html
     assert "Draft Post" not in html
+    # "unlisted" is feed-only, it must stay off the index page
+    assert "Unlisted Sample Post" not in html
 
 
-def test_build_rss_contains_public_posts_only(site):
+def test_build_rss_excludes_drafts_but_includes_unlisted(site):
     blog = _make_blog(site)
     blog.update_data()
     rss = site / "public" / "posts" / "rss.xml"
@@ -149,6 +155,64 @@ def test_build_rss_contains_public_posts_only(site):
     content = rss.read_text()
     assert "Welcome to SimpleBlog" in content
     assert "Draft Post" not in content
+    assert "Unlisted Sample Post" in content
+
+
+def test_build_index_does_not_leak_absolute_paths(site):
+    blog = _make_blog(site)
+    blog.update_data()
+    index_path = str(site / "public" / "posts")
+    blog.build_index(index_path=index_path)
+    html = (site / "public" / "posts" / "index.html").read_text()
+    assert index_path not in html
+    assert str(site) not in html
+
+
+def test_build_rss_channel_title_uses_blogname(site):
+    blog = _make_blog(site, meta={"blogname": "Demo Blog"})
+    blog.update_data()
+    rss = site / "public" / "posts" / "rss.xml"
+    blog.build_rss(rss_path=str(rss))
+    content = rss.read_text()
+    assert "<title>Demo Blog</title>" in content
+
+
+def test_build_rss_channel_title_falls_back_to_site_url(site):
+    blog = _make_blog(site)
+    blog.update_data()
+    rss = site / "public" / "posts" / "rss.xml"
+    blog.build_rss(rss_path=str(rss))
+    content = rss.read_text()
+    assert "<title>https://example.com</title>" in content
+
+
+def test_render_page_mailto_link_is_well_formed(site):
+    blog = _make_blog(site, meta={"google_group_id": "my-group"})
+    content = (
+        "---\n"
+        "title: Mail Post\n"
+        "date: 2024-05-01\n"
+        "publish: public\n"
+        "maillist_title: Say hi by email\n"
+        "google_group_link: https://groups.google.com/g/my-group\n"
+        "---\n"
+        "\n"
+        "# Mail Post\n"
+    )
+    html = blog.render_page(content, "post.html")
+    assert "mailto:my-group@googlegroups.com" in html
+    assert "mailto://" not in html
+    # spaces in the subject must be percent-encoded
+    assert "subject=Re:Say%20hi%20by%20email" in html
+    assert "https://groups.google.com/g/my-group" in html
+
+
+def test_index_page_has_no_dangling_script_tag(site):
+    blog = _make_blog(site)
+    blog.update_data()
+    blog.build_index(index_path=str(site / "public" / "posts"))
+    html = (site / "public" / "posts" / "index.html").read_text()
+    assert "script.js" not in html
 
 
 def test_build_site_end_to_end(site):
