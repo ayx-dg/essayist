@@ -30,6 +30,15 @@ def text_file_to_string(filename: str) -> str:
         return f.read()
 
 
+def pandoc_filter_flag(path: str) -> str:
+    """Return the pandoc CLI flag that loads ``path`` as a filter.
+
+    ``.lua`` files are loaded in-process with ``--lua-filter``; anything else is
+    assumed to be a JSON-filter executable and loaded with ``--filter``.
+    """
+    return f"--lua-filter={path}" if path.endswith(".lua") else f"--filter={path}"
+
+
 def pandoc(content: str, flags: list[str] | None = None) -> str:
     """Render Markdown ``content`` to HTML using the pandoc CLI.
 
@@ -108,12 +117,23 @@ class Blog:
             return str(p)
 
     @staticmethod
-    def bundled_filter(name: str) -> str:
-        """Return the filesystem path of a bundled pandoc lua filter."""
+    def _filters_dir() -> str:
         from importlib.resources import as_file, files
 
-        with as_file(files("essayist").joinpath("filters").joinpath(name)) as p:
+        with as_file(files("essayist").joinpath("filters")) as p:
             return str(p)
+
+    @classmethod
+    def bundled_filters(cls) -> list[str]:
+        """Names of the pandoc filters bundled with the package."""
+        return sorted(p.name for p in Path(cls._filters_dir()).glob("*.lua"))
+
+    @classmethod
+    def bundled_filter(cls, name: str) -> str:
+        """Return the filesystem path of a bundled pandoc lua filter."""
+        if not name.endswith(".lua"):
+            name += ".lua"
+        return os.path.join(cls._filters_dir(), name)
 
     # --- private helpers ---------------------------------------------------
 

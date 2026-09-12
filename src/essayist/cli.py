@@ -49,7 +49,23 @@ def build_parser() -> argparse.ArgumentParser:
     p_build.add_argument("--blogname", help="Blog name shown in page titles.")
     p_build.add_argument("--site-url", help="Base URL used in RSS feeds.")
     p_build.add_argument(
-        "--gallery", action="store_true", help="Enable the gallery lua filter."
+        "--filter",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help=(
+            "Pandoc filter: a path, a file inside the filter directory, or the "
+            "name of a bundled filter such as 'gallery'. Repeatable."
+        ),
+    )
+    p_build.add_argument(
+        "--filter-dir",
+        help="Directory scanned for *.lua pandoc filters (default: filters).",
+    )
+    p_build.add_argument(
+        "--gallery",
+        action="store_true",
+        help="Shorthand for --filter gallery.",
     )
     p_build.set_defaults(func=_cmd_build)
 
@@ -62,10 +78,19 @@ def build_parser() -> argparse.ArgumentParser:
 def _cmd_build(args: argparse.Namespace) -> int:
     config = _load_config(args.config)
     # CLI flags override the config file.
-    for key in ("markdown_dir", "post_dir", "template_dir", "blogname", "site_url"):
+    for key in (
+        "markdown_dir",
+        "post_dir",
+        "template_dir",
+        "filter_dir",
+        "blogname",
+        "site_url",
+    ):
         value = getattr(args, key, None)
         if value:
             setattr(config, key, value)
+    if args.filter:
+        config.filters = list(config.filters) + list(args.filter)
     if args.gallery:
         config.gallery = True
     build_site(config)

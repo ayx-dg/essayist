@@ -12,7 +12,16 @@ site_url         = "https://example.com"
 # Extra pandoc arguments passed when rendering posts.
 panargs = ["--mathml", "--toc"]
 
-# Enable the bundled gallery lua filter (images in one paragraph -> gallery).
+# Pandoc filters.
+#
+# Every *.lua file in `filter_dir` is applied automatically, in name order.
+# Entries in `filters` are resolved as a path, then as a file inside
+# `filter_dir` (with or without the .lua suffix), then as a bundled filter.
+filter_dir = "filters"
+# filters = ["gallery", "my-own-filter"]
+
+# Shorthand for filters = ["gallery"], the bundled image-gallery filter
+# (images in one paragraph -> gallery).
 gallery = false
 
 build_index = true

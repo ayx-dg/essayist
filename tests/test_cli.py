@@ -28,16 +28,17 @@ def test_effective_panargs_adds_gallery_filter():
     class _B:
         @staticmethod
         def bundled_filter(name):
-            return f"/pkg/filters/{name}"
+            # mirror Blog.bundled_filter, which normalises the .lua suffix
+            return f"/pkg/filters/{name[:-4] if name.endswith('.lua') else name}.lua"
 
-    cfg = Config(panargs=["--mathml"], gallery=True)
+    cfg = Config(panargs=["--mathml"], gallery=True, filter_dir="/nonexistent")
     args = cfg.effective_panargs(_B)
     assert "--mathml" in args
     assert any(a.startswith("--lua-filter=") and a.endswith("gallery.lua") for a in args)
 
 
 def test_effective_panargs_without_gallery():
-    cfg = Config(panargs=["--mathml"])
+    cfg = Config(panargs=["--mathml"], filter_dir="/nonexistent")
     assert cfg.effective_panargs(None) == ["--mathml"]
 
 
