@@ -50,9 +50,40 @@ publish: public
 Here is the body of my post, written in Markdown.
 ```
 
-### 2. Create a config file
+### 2. Build from Python
 
-Save this as `essayist.toml` in your project root:
+No config file is needed to get going — pass the same options straight to the
+API:
+
+```python
+from essayist import Blog, Config, build_site
+
+# High-level: load config and build everything
+cfg = Config(
+    markdown_dir="markdown/posts",
+    post_dir="public/posts",
+    blogname="My Blog",
+    site_url="https://example.com",
+    panargs=["--mathml", "--toc"],
+)
+build_site(cfg)
+
+# Or use the Blog class directly
+blog = Blog(
+    markdown_dir="markdown/posts",
+    post_dir="public/posts",
+    template_dir="path/to/custom/templates",  # None → use bundled defaults
+)
+blog.update_data()
+blog.build_posts()
+blog.build_index()
+blog.build_rss("public/posts/rss.xml")
+```
+
+### 3. Create a config file
+
+To drive the build from the CLI instead, save this as `essayist.toml` in your
+project root:
 
 ```toml
 markdown_dir = "markdown/posts"
@@ -70,7 +101,7 @@ home_output  = "public/index.html"
 style_css    = "style-note.css"
 ```
 
-### 3. Build
+### 4. Build with the CLI
 
 ```bash
 essayist build
@@ -115,33 +146,6 @@ CLI flags override the corresponding config-file values:
 | `--filter`       | Pandoc filter (repeatable)         |
 | `--filter-dir`   | Directory scanned for `*.lua` filters |
 | `--gallery`      | Shorthand for `--filter gallery`   |
-
-## Python API
-
-```python
-from essayist import Blog, Config, build_site
-
-# High-level: load config and build everything
-cfg = Config(
-    markdown_dir="markdown/posts",
-    post_dir="public/posts",
-    blogname="My Blog",
-    site_url="https://example.com",
-    panargs=["--mathml", "--toc"],
-)
-build_site(cfg)
-
-# Or use the Blog class directly
-blog = Blog(
-    markdown_dir="markdown/posts",
-    post_dir="public/posts",
-    template_dir="path/to/custom/templates",  # None → use bundled defaults
-)
-blog.update_data()
-blog.build_posts()
-blog.build_index()
-blog.build_rss("public/posts/rss.xml")
-```
 
 ## Config reference
 
