@@ -1,99 +1,79 @@
-"""Command line interface for the static site generator."""
+"""Command line wrapper around :class:`essayist.Blog`."""
 
 from __future__ import annotations
 
 import argparse
 import os
 import sys
-from dataclasses import fields
 
-try:  # Python >= 3.11
-    import tomllib
-except ModuleNotFoundError:  # Python 3.10
-    import tomli as tomllib
-
-from .builder import build_site
-from .config import Config
-
-
-def _load_config(path: str | None) -> Config:
-    """Load a :class:`Config` from a TOML file, if given."""
-    if not path:
-        return Config()
-    with open(path, "rb") as f:
-        data = tomllib.load(f)
-    # Accept either a top-level table or a [tool.essayist] table.
-    cfg = data.get("essayist", data)
-    known = {f.name for f in fields(Config)}
-    kwargs = {k: v for k, v in cfg.items() if k in known}
-    base = os.path.dirname(os.path.abspath(path))
-    config = Config(**kwargs)
-    config.resolve(base)
-    return config
+from .core import Blog
+from .template import Jinja2Template
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="essayist",
-        description="A Pandoc + Jinja2 static site generator.",
+        description="Turn Markdown files into a blog.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_build = sub.add_parser("build", help="Build the static site.")
-    p_build.add_argument(
-        "-c", "--config", default="essayist.toml", help="Path to TOML config file."
-    )
-    p_build.add_argument("--markdown-dir", help="Directory with Markdown posts.")
-    p_build.add_argument("--post-dir", help="Output directory for posts.")
-    p_build.add_argument("--template-dir", help="Directory with Jinja2 templates.")
-    p_build.add_argument("--blogname", help="Blog name shown in page titles.")
-    p_build.add_argument("--site-url", help="Base URL used in RSS feeds.")
-    p_build.add_argument(
+    p = sub.add_parser("build", help="Build pages.")
+    p.add_argument("source", help="Markdown file or folder.")
+    p.add_argument("output", help="HTML file or folder.")
+    p.add_argument("--template", help="Jinja2 template file name.")
+    p.add_argument("--template-dir", help="Folder with your Jinja2 templates.")
+    p.add_argument(
         "--filter",
         action="append",
         default=[],
         metavar="NAME",
-        help=(
-            "Pandoc filter: a path, a file inside the filter directory, or the "
-            "name of a bundled filter such as 'gallery'. Repeatable."
-        ),
+        help="Pandoc filter: path, file in --filter-dir, or bundle file. Repeatable.",
     )
-    p_build.add_argument(
-        "--filter-dir",
-        help="Directory scanned for *.lua pandoc filters (default: filters).",
+    p.add_argument("--filter-dir", help="Folder scanned for *.lua filters.")
+    p.add_argument("--name", default="", help="Blog name in page titles.")
+    p.add_argument("--url", default="", help="Site address used in the feed.")
+    p.add_argument("--group-id", default="", help="Google group for mail comments.")
+    p.add_argument("--css", help="CSS file copied next to the pages.")
+    p.add_argument(
+        "--pandoc-arg",
+        action="append",
+        default=[],
+        metavar="FLAG",
+        help="Extra Pandoc flag, like --pandoc-arg=--mathml. Repeatable.",
     )
-    p_build.add_argument(
-        "--gallery",
-        action="store_true",
-        help="Shorthand for --filter gallery.",
-    )
-    p_build.set_defaults(func=_cmd_build)
+    p.add_argument("--no-index", action="store_true", help="Do not write the list page.")
+    p.add_argument("--no-rss", action="store_true", help="Do not write the feed.")
+    p.set_defaults(func=_cmd_build)
 
-    sub.add_parser("version", help="Print the package version.").set_defaults(
+    sub.add_parser("version", help="Print the version.").set_defaults(
         func=_cmd_version
     )
     return parser
 
 
 def _cmd_build(args: argparse.Namespace) -> int:
-    config = _load_config(args.config)
-    # CLI flags override the config file.
-    for key in (
-        "markdown_dir",
-        "post_dir",
-        "template_dir",
-        "filter_dir",
-        "blogname",
-        "site_url",
-    ):
-        value = getattr(args, key, None)
-        if value:
-            setattr(config, key, value)
-    if args.filter:
-        config.filters = list(config.filters) + list(args.filter)
-    if args.gallery:
-        config.gallery = True
-    build_site(config)
+    template = None
+    if args.template or args.template_dir:
+        template = Jinja2Template(args.template or "post.html", dir=args.template_dir)
+    blog = Blog(
+        source=args.source,
+        output=args.output,
+        template=template,
+        filters=args.filter,
+        panargs=args.pandoc_arg,
+        name=args.name,
+        url=args.url,
+        group_id=args.group_id,
+        css=args.css,
+        filter_dir=args.filter_dir,
+    )
+    blog.build()
+    # A folder of posts also gets a list page and a feed.
+    if os.path.isdir(args.source):
+        if not args.no_index:
+            blog.build_index()
+        if not args.no_rss:
+            blog.build_rss()
     print("Build complete")
     return 0
 

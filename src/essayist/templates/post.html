@@ -19,12 +19,12 @@
 {% if prev_post or next_post %}
 <nav class="post-nav" aria-label="Previous / Next post">
     {% if next_post %}
-    <a class="post-nav-next" href="{{ next_post.html_path }}">Next: {{ next_post.title }}</a>
+    <a class="post-nav-next" href="{{ next_post.link }}">Next: {{ next_post.title }}</a>
     {% else %}
     <span class="post-nav-placeholder" aria-hidden="true"></span>
     {% endif %}
     {% if prev_post %}
-    <a class="post-nav-prev" href="{{ prev_post.html_path }}">Previous: {{ prev_post.title }}</a>
+    <a class="post-nav-prev" href="{{ prev_post.link }}">Previous: {{ prev_post.title }}</a>
     {% else %}
     <span class="post-nav-placeholder" aria-hidden="true"></span>
     {% endif %}

@@ -1,85 +1,108 @@
-"""Tests for the configuration and CLI."""
+"""The command line wrapper."""
 
 import os
 
-import pytest
-
 from essayist import cli
-from essayist.config import Config
 
 
-def test_config_defaults():
-    cfg = Config()
-    assert cfg.markdown_dir == "markdown/posts"
-    assert cfg.post_dir == "public/posts"
-    assert cfg.template_dir is None
-    assert cfg.build_rss is True
-    assert cfg.gallery is False
-
-
-def test_config_resolve_makes_paths_absolute():
-    cfg = Config()
-    cfg.resolve("/base")
-    assert cfg.markdown_dir == "/base/markdown/posts"
-    assert cfg.post_dir == "/base/public/posts"
-
-
-def test_effective_panargs_adds_gallery_filter():
-    class _B:
-        @staticmethod
-        def bundled_filter(name):
-            # mirror Blog.bundled_filter, which normalises the .lua suffix
-            return f"/pkg/filters/{name[:-4] if name.endswith('.lua') else name}.lua"
-
-    cfg = Config(panargs=["--mathml"], gallery=True, filter_dir="/nonexistent")
-    args = cfg.effective_panargs(_B)
-    assert "--mathml" in args
-    assert any(a.startswith("--lua-filter=") and a.endswith("gallery.lua") for a in args)
-
-
-def test_effective_panargs_without_gallery():
-    cfg = Config(panargs=["--mathml"], filter_dir="/nonexistent")
-    assert cfg.effective_panargs(None) == ["--mathml"]
-
-
-def test_load_config_from_toml(tmp_path):
-    cfg_file = tmp_path / "essayist.toml"
-    cfg_file.write_text(
-        'markdown_dir = "md"\n'
-        'post_dir = "out"\n'
-        'blogname = "Toml Blog"\n'
-        'panargs = ["--mathml"]\n'
-    )
-    cfg = cli._load_config(str(cfg_file))
-    assert cfg.blogname == "Toml Blog"
-    assert cfg.markdown_dir == os.path.join(str(tmp_path), "md")
-    assert cfg.panargs == ["--mathml"]
-
-
-def test_load_config_missing_file_returns_defaults():
-    # A non-existent path is never passed by the CLI; but guard the behaviour.
-    with pytest.raises(FileNotFoundError):
-        cli._load_config("/definitely/not/here.toml")
-
-
-def test_main_version(capsys):
+def test_version(capsys):
     assert cli.main(["version"]) == 0
-    out = capsys.readouterr().out.strip()
-    assert out == "0.1.0" or out.startswith("0.")
+    assert capsys.readouterr().out.strip().startswith("0.")
 
 
-def test_main_build_with_flags(site, tmp_path, capsys):
-    cfg_file = tmp_path / "essayist.toml"
-    cfg_file.write_text(
-        f'markdown_dir = "{site/"markdown"/"posts"}"\n'
-        f'post_dir = "{tmp_path/"public"/"posts"}"\n'
-        f'site_url = "https://example.com"\n'
-        f'home_md = "{site/"markdown"/"index.md"}"\n'
-        f'home_output = "{tmp_path/"public"/"index.html"}"\n'
-        f'data_path = "{tmp_path/"data.json"}"\n'
+def test_build_a_folder_writes_posts_index_and_feed(site, tmp_path):
+    out = tmp_path / "public" / "posts"
+    assert (
+        cli.main(
+            [
+                "build",
+                str(site / "markdown" / "posts"),
+                str(out),
+                "--name",
+                "Flag Blog",
+                "--url",
+                "https://example.com",
+            ]
+        )
+        == 0
     )
-    rc = cli.main(["build", "--config", str(cfg_file), "--blogname", "Flag Blog"])
-    assert rc == 0
-    assert os.path.exists(tmp_path / "public" / "posts" / "1.html")
-    assert "Flag Blog" in (tmp_path / "public" / "posts" / "1.html").read_text()
-    assert "Build complete" in capsys.readouterr().out
+    assert (out / "1.html").is_file()
+    assert (out / "index.html").is_file()
+    assert (out / "rss.xml").is_file()
+    assert "Flag Blog" in (out / "1.html").read_text()
+
+
+def test_build_a_single_file_writes_one_page(site, tmp_path):
+    out = tmp_path / "public" / "index.html"
+    assert cli.main(["build", str(site / "markdown" / "index.md"), str(out)]) == 0
+    assert out.is_file()
+    assert "Home Page" in out.read_text()
+    assert not (tmp_path / "public" / "rss.xml").exists()
+
+
+def test_no_index_and_no_rss(site, tmp_path):
+    out = tmp_path / "out"
+    cli.main(
+        ["build", str(site / "markdown" / "posts"), str(out), "--no-index", "--no-rss"]
+    )
+    assert (out / "1.html").is_file()
+    assert not (out / "index.html").exists()
+    assert not (out / "rss.xml").exists()
+
+
+def test_filter_flag_is_applied(tmp_path):
+    md = tmp_path / "md"
+    md.mkdir()
+    (md / "a.md").write_text("---\ntitle: A\ndate: 2024-01-01\n---\n\nMARKME\n")
+    lua = tmp_path / "mark.lua"
+    lua.write_text(
+        'function Str(el)\n  if el.text == "MARKME" then\n'
+        '    return pandoc.Str("MARKED")\n  end\nend\n'
+    )
+    cli.main(["build", str(md), str(tmp_path / "out"), "--filter", str(lua)])
+    assert "MARKED" in (tmp_path / "out" / "1.html").read_text()
+
+
+def test_filter_dir_flag_is_applied(tmp_path):
+    md = tmp_path / "md"
+    md.mkdir()
+    (md / "a.md").write_text("---\ntitle: A\ndate: 2024-01-01\n---\n\nMARKME\n")
+    fd = tmp_path / "fd"
+    fd.mkdir()
+    (fd / "mark.lua").write_text(
+        'function Str(el)\n  if el.text == "MARKME" then\n'
+        '    return pandoc.Str("MARKED")\n  end\nend\n'
+    )
+    cli.main(["build", str(md), str(tmp_path / "out"), "--filter-dir", str(fd)])
+    assert "MARKED" in (tmp_path / "out" / "1.html").read_text()
+
+
+def test_template_flags(tmp_path):
+    md = tmp_path / "md"
+    md.mkdir()
+    (md / "a.md").write_text("---\ntitle: A\ndate: 2024-01-01\n---\n\nx\n")
+    tpl = tmp_path / "tpl"
+    tpl.mkdir()
+    (tpl / "post.html").write_text("CUSTOM {{ heading }}")
+    cli.main(
+        ["build", str(md), str(tmp_path / "out"), "--template-dir", str(tpl)]
+    )
+    assert "CUSTOM A" in (tmp_path / "out" / "1.html").read_text()
+
+
+def test_pandoc_arg_flag(tmp_path):
+    md = tmp_path / "md"
+    md.mkdir()
+    (md / "a.md").write_text("---\ntitle: A\ndate: 2024-01-01\n---\n\n$x$\n")
+    cli.main(["build", str(md), str(tmp_path / "out"), "--pandoc-arg=--mathml"])
+    assert "math" in (tmp_path / "out" / "1.html").read_text()
+
+
+def test_cli_help_lists_the_flags(capsys):
+    import pytest
+
+    with pytest.raises(SystemExit):
+        cli.main(["build", "--help"])
+    out = capsys.readouterr().out
+    for flag in ("--filter", "--filter-dir", "--template", "--no-rss"):
+        assert flag in out

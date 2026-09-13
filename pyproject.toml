@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "essayist"
-version = "0.1.0"
-description = "A Pandoc + Jinja2 static site generator for Markdown blogs."
+version = "0.2.0"
+description = "Turn Markdown files into a blog with Pandoc and Jinja2."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -19,7 +19,6 @@ classifiers = [
 dependencies = [
     "jinja2",
     "pyyaml",
-    'tomli; python_version < "3.11"',
 ]
 
 [project.optional-dependencies]
