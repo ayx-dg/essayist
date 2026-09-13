@@ -2,14 +2,14 @@
 
 A filter changes the page while Pandoc reads it.
 
-Point at a filter in one of three ways:
+Name a filter in one of three ways:
 
 1. a path, like ``filters/up.lua``
-2. a file name inside a filter folder, like ``up`` (means ``up.lua`` there)
-3. a bundle file name, like ``gallery``
+2. a file name inside your filter folder, like ``up`` (means ``up.lua``)
+3. a filter that comes with essayist, like ``gallery``
 
-A **bundle file** is a filter that ships inside essayist. You write its name
-with no ``.lua`` ending.
+essayist comes with its own filters in a folder inside the package. Write their
+names with no ``.lua`` ending.
 """
 
 from __future__ import annotations
@@ -17,10 +17,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from .core import bundled_path
+from .core import filters_folder
 
 
-def flag(path: str) -> str:
+def flag_for(path: str) -> str:
     """The Pandoc flag that loads one filter file.
 
     ``.lua`` files use ``--lua-filter``. Every other file uses ``--filter``
@@ -29,54 +29,57 @@ def flag(path: str) -> str:
     return f"--lua-filter={path}" if path.endswith(".lua") else f"--filter={path}"
 
 
-def bundle_files() -> list[str]:
-    """Names of the bundle files, like ``['gallery.lua']``."""
-    return sorted(p.name for p in Path(bundled_path("filters")).glob("*.lua"))
+def included() -> list[str]:
+    """File names of the filters that come with essayist."""
+    return sorted(p.name for p in Path(filters_folder()).glob("*.lua"))
 
 
-def bundle_path(name: str) -> str:
-    """Path of one bundle file. ``gallery`` and ``gallery.lua`` both work."""
+def included_path(name: str) -> str:
+    """Path of a filter that comes with essayist.
+
+    ``gallery`` and ``gallery.lua`` both work.
+    """
     if not name.endswith(".lua"):
         name += ".lua"
-    return bundled_path("filters", name)
+    return os.path.join(filters_folder(), name)
 
 
-def find(name: str, filter_dir: str | None = None) -> str | None:
+def find(name: str, folder: str | None = None) -> str | None:
     """Find one filter file. Returns ``None`` when nothing matches.
 
-    Order: path, then file inside ``filter_dir``, then bundle file.
+    Order: path, then file inside ``folder``, then a filter that comes with
+    essayist.
     """
     if os.path.isfile(name):
         return name
-    if filter_dir:
+    if folder:
         for candidate in (
-            os.path.join(filter_dir, name),
-            os.path.join(filter_dir, name + ".lua"),
+            os.path.join(folder, name),
+            os.path.join(folder, name + ".lua"),
         ):
             if os.path.isfile(candidate):
                 return candidate
-    path = bundle_path(name)
+    path = included_path(name)
     return path if os.path.isfile(path) else None
 
 
-def discover(filter_dir: str | None) -> list[str]:
-    """Every ``*.lua`` file inside ``filter_dir``, sorted by name."""
-    if not filter_dir or not os.path.isdir(filter_dir):
+def in_folder(folder: str | None) -> list[str]:
+    """Every ``*.lua`` file inside ``folder``, sorted by name."""
+    if not folder or not os.path.isdir(folder):
         return []
-    return [str(p) for p in sorted(Path(filter_dir).glob("*.lua"))]
+    return [str(p) for p in sorted(Path(folder).glob("*.lua"))]
 
 
-def all_flags(names=(), filter_dir: str | None = None) -> list[str]:
-    """Pandoc flags for ``names`` plus every file found in ``filter_dir``.
+def flags(names=(), folder: str | None = None) -> list[str]:
+    """Pandoc flags for ``names`` plus every file found in ``folder``.
 
     No flag is repeated. Names that match nothing are skipped.
     """
     out: list[str] = []
-    paths = [find(n, filter_dir) for n in names] + discover(filter_dir)
-    for path in paths:
+    for path in [find(n, folder) for n in names] + in_folder(folder):
         if not path:
             continue
-        one = flag(path)
+        one = flag_for(path)
         if one not in out:
             out.append(one)
     return out

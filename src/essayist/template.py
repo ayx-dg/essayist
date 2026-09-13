@@ -11,7 +11,7 @@ Both answer to the same call: ``template.render(**data)``.
 
 from __future__ import annotations
 
-from .core import bundled_path, pandoc
+from .core import pandoc, templates_folder
 
 
 class Template:
@@ -33,7 +33,7 @@ class Jinja2Template(Template):
         from jinja2 import Environment, FileSystemLoader
 
         self.name = name
-        self.dir = dir or bundled_path("templates")
+        self.dir = dir or templates_folder()
         self.env = Environment(loader=FileSystemLoader(self.dir))
 
     def render(self, **data) -> str:
@@ -47,14 +47,14 @@ class PandocTemplate(Template):
     (``-V key:value``). With no file, Pandoc uses its own default template.
     """
 
-    def __init__(self, path: str | None = None, panargs: list[str] | None = None) -> None:
+    def __init__(self, path: str | None = None, pandoc_args: list[str] | None = None) -> None:
         self.path = path
-        self.panargs = list(panargs or [])
+        self.pandoc_args = list(pandoc_args or [])
 
     def render(self, **data) -> str:
         data = dict(data)
         body = data.pop("body", "")
-        flags = list(self.panargs)
+        flags = list(self.pandoc_args)
         for key, value in data.items():
             if value is not None:
                 flags += ["-V", f"{key}:{value}"]

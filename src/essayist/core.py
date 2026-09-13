@@ -29,12 +29,22 @@ def write(path: str, text: str) -> None:
         f.write(text)
 
 
-def bundled_path(*parts: str) -> str:
-    """Path of a file inside the installed essayist package."""
+def inside_essayist(*parts: str) -> str:
+    """Path of a file that lives inside the installed essayist."""
     from importlib.resources import as_file, files
 
     with as_file(files("essayist").joinpath(*parts)) as p:
         return str(p)
+
+
+def templates_folder() -> str:
+    """The folder with the Jinja2 files that come with essayist."""
+    return inside_essayist("templates")
+
+
+def filters_folder() -> str:
+    """The folder with the filter files that come with essayist."""
+    return inside_essayist("filters")
 
 
 def pandoc(content: str, flags: list[str] | None = None) -> str:
@@ -67,7 +77,7 @@ def pandoc(content: str, flags: list[str] | None = None) -> str:
     return out
 
 
-def front_matter(text: str) -> dict | None:
+def top_block(text: str) -> dict | None:
     """Read the ``---`` block at the top of a Markdown file."""
     if not text.startswith("---"):
         return None
@@ -105,10 +115,10 @@ class Blog:
         output: str,
         template=None,
         filters=(),
-        panargs=(),
+        pandoc_args=(),
         name: str = "",
         url: str = "",
-        group_id: str = "",
+        google_group: str = "",
         css: str | None = None,
         filter_dir: str | None = None,
     ):
@@ -116,10 +126,10 @@ class Blog:
         self.output = output
         self.template = template
         self.filters = list(filters)
-        self.panargs = list(panargs)
+        self.pandoc_args = list(pandoc_args)
         self.name = name
         self.url = (url or "https://example.com").rstrip("/")
-        self.group_id = group_id
+        self.google_group = google_group
         self.css = css
         self.filter_dir = filter_dir
         self.posts: list[dict] = []
@@ -159,12 +169,12 @@ class Blog:
         else:
             names = [os.path.basename(self.source)]
         paths = [os.path.join(self.source_dir, n) for n in names]
-        paths.sort(key=lambda p: str((front_matter(read(p)) or {}).get("date", "")))
+        paths.sort(key=lambda p: str((top_block(read(p)) or {}).get("date", "")))
         self.posts = [self._info(p, i) for i, p in enumerate(paths, 1)]
         return self.posts
 
     def _info(self, path: str, number: int) -> dict:
-        meta = front_matter(read(path)) or {}
+        meta = top_block(read(path)) or {}
         return {
             "number": number,
             "path": path,
@@ -187,15 +197,15 @@ class Blog:
         return Jinja2Template("post.html")
 
     def _panargs(self) -> list[str]:
-        from .filters import all_flags
+        from .filters import flags as filter_flags
 
-        return list(self.panargs) + all_flags(self.filters, self.filter_dir)
+        return list(self.pandoc_args) + filter_flags(self.filters, self.filter_dir)
 
     # --- writing ---------------------------------------------------------
 
     def render(self, text: str, post: dict | None = None) -> str:
         """Turn one Markdown file into one finished page."""
-        meta = front_matter(text) or {}
+        meta = top_block(text) or {}
         title = str(meta.get("title", ""))
         prev_post, next_post = (None, None)
         if post is not None:
@@ -207,7 +217,7 @@ class Blog:
             paragraphs=pandoc(text, self._panargs()),
             prev_post=prev_post,
             next_post=next_post,
-            google_group_id=self.group_id,
+            google_group_id=self.google_group,
             maillist_title=meta.get("maillist_title"),
             google_group_link=meta.get("google_group_link"),
         )

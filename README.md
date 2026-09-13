@@ -50,7 +50,7 @@ posts = Blog(
     output="public/posts",
     name="My Blog",
     url="https://example.com",
-    panargs=["--mathml", "--toc"],
+    pandoc_args=["--mathml", "--toc"],
 )
 posts.build()
 posts.build_index(title="All Posts")
@@ -79,7 +79,7 @@ A full example is in [`example.py`](example.py).
 | `template` | `post.html` | Template that writes the page |
 | `filters` | `[]` | Pandoc filters |
 | `filter_dir` | none | Folder scanned for `*.lua` filters |
-| `panargs` | `[]` | Extra Pandoc flags, like `["--mathml"]` |
+| `pandoc_args` | `[]` | Extra Pandoc flags, like `["--mathml"]` |
 | `name` | `""` | Blog name, added to page titles |
 | `url` | `https://example.com` | Site address used in the feed |
 | `group_id` | `""` | Google group name for mail comments |
@@ -183,10 +183,10 @@ These Jinja2 files ship with essayist:
 | `home.html` | the home page |
 
 To use your own files, set `template=` **and** copy all five files. essayist
-does not fall back to the bundled ones. Find them with:
+does not fall back to the ones it comes with. Find them with:
 
 ```bash
-python -c "from essayist.core import bundled_path; print(bundled_path('templates'))"
+python -c "from essayist.core import templates_folder; print(templates_folder())"
 ```
 
 ## Pandoc filters
@@ -203,18 +203,18 @@ Three ways to name one:
 |-----|---------|-------|
 | path | `filters/up.lua` | that file |
 | name in `filter_dir` | `up` | `filters/up.lua` |
-| bundle file | `gallery` | a filter inside essayist |
+| name with no `.lua` | `gallery` | a filter that comes with essayist |
 
-A **bundle file** is a filter that ships inside essayist. You write its name
-with no `.lua` ending.
+essayist comes with its own filters. You write their names with no `.lua`
+ending. To see them:
 
 ```bash
-python -c "from essayist import filters; print(filters.bundle_files())"
+python -c "from essayist import filters; print(filters.included())"
 # ['gallery.lua']
 ```
 
-| Bundle file | What it does |
-|-------------|--------------|
+| Filter that comes with essayist | What it does |
+|---------------------------------|--------------|
 | `gallery` | puts the images of one paragraph in a row |
 
 Every `*.lua` file in `filter_dir` is used too, in name order.
@@ -222,7 +222,8 @@ Every `*.lua` file in `filter_dir` is used too, in name order.
 `.lua` files run inside Pandoc (`--lua-filter`). Other files run as a program
 (`--filter`). `filter_dir` only picks up `*.lua` files.
 
-To add a bundle file, put a `*.lua` file in `src/essayist/filters/`.
+To add a filter to essayist itself, put a `*.lua` file in
+`src/essayist/filters/`.
 
 ## Live demo
 

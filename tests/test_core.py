@@ -2,7 +2,15 @@
 
 import os
 
-from essayist.core import bundled_path, front_matter, pandoc, read, write
+from essayist.core import (
+    filters_folder,
+    inside_essayist,
+    pandoc,
+    read,
+    templates_folder,
+    top_block,
+    write,
+)
 
 
 def test_read_and_write_round_trip(tmp_path):
@@ -29,21 +37,29 @@ def test_pandoc_uses_a_given_template(tmp_path):
     assert "<main>" in out
 
 
-def test_front_matter_reads_the_top_block():
-    data = front_matter("---\ntitle: One\ndate: 2024-01-01\n---\n\nbody\n")
+def test_top_block_reads_the_top_block():
+    data = top_block("---\ntitle: One\ndate: 2024-01-01\n---\n\nbody\n")
     assert data["title"] == "One"
 
 
-def test_front_matter_without_block_is_none():
-    assert front_matter("just text\n") is None
+def test_top_block_without_block_is_none():
+    assert top_block("just text\n") is None
 
 
-def test_front_matter_makes_title_a_string():
-    data = front_matter("---\ntitle: 42\n---\n")
+def test_top_block_makes_title_a_string():
+    data = top_block("---\ntitle: 42\n---\n")
     assert data["title"] == "42"
 
 
-def test_bundled_path_finds_templates():
-    path = bundled_path("templates")
+def test_templates_folder_has_the_jinja2_files():
+    path = templates_folder()
     assert os.path.isdir(path)
     assert os.path.isfile(os.path.join(path, "post.html"))
+
+
+def test_filters_folder_has_the_filter_files():
+    assert os.path.isdir(filters_folder())
+
+
+def test_inside_essayist_finds_a_file():
+    assert os.path.isfile(inside_essayist("style-note.css"))

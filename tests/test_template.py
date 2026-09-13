@@ -3,7 +3,7 @@
 import pytest
 
 from essayist import Jinja2Template, PandocTemplate, Template
-from essayist.core import bundled_path
+from essayist.core import templates_folder
 
 
 def test_base_template_has_no_render():
@@ -11,7 +11,7 @@ def test_base_template_has_no_render():
         Template().render(title="x")
 
 
-def test_jinja2_template_uses_a_bundled_file():
+def test_jinja2_template_uses_a_file_that_comes_with_essayist():
     html = Jinja2Template("post.html").render(
         title="T", heading="H", paragraphs="<p>body</p>"
     )
@@ -28,8 +28,8 @@ def test_jinja2_template_uses_own_folder(tmp_path):
     )
 
 
-def test_jinja2_template_default_dir_is_the_bundled_one():
-    assert Jinja2Template("post.html").dir == bundled_path("templates")
+def test_jinja2_template_default_dir_is_inside_essayist():
+    assert Jinja2Template("post.html").dir == templates_folder()
 
 
 def test_pandoc_template_renders_body_and_variables(tmp_path):
@@ -46,7 +46,7 @@ def test_pandoc_template_without_file_uses_pandoc_default():
 
 
 def test_pandoc_template_passes_extra_pandoc_flags(tmp_path):
-    out = PandocTemplate(panargs=["--mathml"]).render(body="$x$")
+    out = PandocTemplate(pandoc_args=["--mathml"]).render(body="$x$")
     assert "math" in out
 
 

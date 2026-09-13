@@ -200,7 +200,7 @@ def test_filter_folder_files_are_applied(tmp_path):
     assert "MARKME" not in html
 
 
-def test_bundle_file_is_applied(tmp_path):
+def test_included_filter_is_applied(tmp_path):
     (tmp_path / "md").mkdir()
     (tmp_path / "md" / "a.md").write_text(
         "---\ntitle: A\ndate: 2024-01-01\n---\n\ntext\n"
@@ -230,7 +230,7 @@ def test_mail_comment_link(tmp_path):
         "google_group_link: https://groups.google.com/g/g\n"
         "---\n\ntext\n"
     )
-    Blog(str(tmp_path / "md"), str(tmp_path / "out"), group_id="g").build()
+    Blog(str(tmp_path / "md"), str(tmp_path / "out"), google_group="g").build()
     html = (tmp_path / "out" / "1.html").read_text()
     assert "mailto:g@googlegroups.com" in html
     assert "mailto://" not in html

@@ -27,12 +27,14 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         default=[],
         metavar="NAME",
-        help="Pandoc filter: path, file in --filter-dir, or bundle file. Repeatable.",
+        help="Pandoc filter: path, file in --filter-dir, , or a filter that comes with essayist. Repeatable.",
     )
     p.add_argument("--filter-dir", help="Folder scanned for *.lua filters.")
     p.add_argument("--name", default="", help="Blog name in page titles.")
     p.add_argument("--url", default="", help="Site address used in the feed.")
-    p.add_argument("--group-id", default="", help="Google group for mail comments.")
+    p.add_argument(
+        "--google-group", default="", help="Google group name for mail comments."
+    )
     p.add_argument("--css", help="CSS file copied next to the pages.")
     p.add_argument(
         "--pandoc-arg",
@@ -60,10 +62,10 @@ def _cmd_build(args: argparse.Namespace) -> int:
         output=args.output,
         template=template,
         filters=args.filter,
-        panargs=args.pandoc_arg,
+        pandoc_args=args.pandoc_arg,
         name=args.name,
         url=args.url,
-        group_id=args.group_id,
+        google_group=args.google_group,
         css=args.css,
         filter_dir=args.filter_dir,
     )
