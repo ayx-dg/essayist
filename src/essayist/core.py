@@ -77,6 +77,12 @@ def pandoc(content: str, flags: list[str] | None = None) -> str:
     return out
 
 
+def text_file_to_string(filename: str) -> str:
+    """Read a text file and return its contents."""
+    with open(filename, 'r', encoding='utf-8') as f:
+        return f.read()
+
+
 def top_block(text: str) -> dict | None:
     """Read the ``---`` block at the top of a Markdown file."""
     if not text.startswith("---"):
@@ -133,6 +139,10 @@ class Blog:
         self.css = css
         self.filter_dir = filter_dir
         self.posts: list[dict] = []
+        if template is not None and hasattr(template, 'dir') and os.path.isdir(template.dir):
+            self.template_dir = template.dir
+        else:
+            self.template_dir = None
 
     # --- where things go -------------------------------------------------
 
@@ -179,8 +189,10 @@ class Blog:
             "number": number,
             "path": path,
             "link": f"{self.link_prefix}/{number}.html",
+            "html_path": f"{self.link_prefix}/{number}.html",
             "title": str(meta.get("title", "")),
             "date": str(meta.get("date", "")),
+            "ctime": str(meta.get("date", "")),
             "tags": meta.get("tags"),
             "publish": str(meta.get("publish", "public")),
             "meta": meta,
@@ -232,6 +244,13 @@ class Blog:
                 )
         return None, None
 
+    def _neighbours_with_html_path(self, post: dict):
+        prev, next_ = self._neighbours(post)
+        return (
+            {**prev, "html_path": prev["html_path"]} if prev else None,
+            {**next_, "html_path": next_["html_path"]} if next_ else None,
+        )
+
     def copy_assets(self) -> None:
         """Copy files that are not Markdown from source folder to output."""
         if not os.path.isdir(self.source_dir):
@@ -264,14 +283,23 @@ class Blog:
             shutil.copy2(self.css, os.path.join(self.out_dir, "style-note.css"))
         return self
 
+    def _make_template(self, name: str) -> Jinja2Template:
+        """Create a Jinja2Template, falling back to essayist defaults if not found."""
+        from .template import Jinja2Template
+
+        if self.template_dir and os.path.isfile(os.path.join(self.template_dir, name)):
+            return Jinja2Template(name, dir=self.template_dir)
+        return Jinja2Template(name)
+
     def build_index(self, path: str | None = None, title: str = "Index", template=None) -> str:
         """Write a page that lists every public post. Returns its path."""
         from .template import Jinja2Template
 
-        template = template or Jinja2Template("index.html")
+        if template is None:
+            template = self._make_template("index.html")
         out = path or os.path.join(self.out_dir, "index.html")
         posts = [
-            {"title": p["title"], "date": p["date"], "link": p["link"]}
+            {"title": p["title"], "date": p["date"], "ctime": p["ctime"], "html_path": p["html_path"]}
             for p in self._public()
         ]
         write(out, template.render(posts=posts[::-1], title=title, blogname=self.name))
@@ -284,7 +312,7 @@ class Blog:
         for post in sorted(self.posts, key=lambda p: p["date"], reverse=True):
             if post["publish"] == "draft":
                 continue
-            link = self.url + post["link"]
+            link = self.url + post["html_path"]
             body = pandoc(read(post["path"]), ["--mathml", "-V", "title:"])
             date = post["date"].split(" ")[0]
             items += (
@@ -309,3 +337,40 @@ class Blog:
         )
         write(out, xml)
         return out
+
+    def render_page(self, content: str, template_name, pandoc_args: list[str] | None = None, meta: dict | None = None) -> str:
+        """Render a single page with a given template."""
+        from .template import Jinja2Template
+
+        panargs = list(self.pandoc_args) + (list(pandoc_args) if pandoc_args else [])
+        post_meta = top_block(content) or {}
+        title = str(post_meta.get("title", ""))
+        tags = post_meta.get("tags")
+        body_html = pandoc(content, panargs)
+
+        if isinstance(template_name, Jinja2Template):
+            template = template_name
+        else:
+            template = self._make_template(template_name)
+
+        prev_post, next_post = (None, None)
+
+        data = {
+            "title": f"{title} | {self.name}" if self.name else title,
+            "heading": title,
+            "tags": tags,
+            "paragraphs": body_html,
+            "google_group_id": self.google_group,
+            "maillist_title": post_meta.get("maillist_title"),
+            "google_group_link": post_meta.get("google_group_link"),
+            "prev_post": prev_post,
+            "next_post": next_post,
+            **(meta or {}),
+        }
+        return template.render(**data)
+
+    def write_page(self, output: str, title: str, post_dir: str = None) -> None:
+        """Write a rendered page to the output directory."""
+        dst = post_dir or self.out_dir
+        os.makedirs(dst, exist_ok=True)
+        write(os.path.join(dst, f"{title}.html"), output)
