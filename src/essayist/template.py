@@ -27,13 +27,20 @@ class Jinja2Template(Template):
 
     ``Jinja2Template("post.html")`` uses the file that ships with essayist.
     ``Jinja2Template("post.html", dir="templates")`` uses your own folder.
+    ``Jinja2Template("./template")`` uses the directory as template folder with default post.html.
     """
 
     def __init__(self, name: str, dir: str | None = None) -> None:
         from jinja2 import Environment, FileSystemLoader
+        import os
 
-        self.name = name
-        self.dir = dir or templates_folder()
+        # If name is a directory path, use it as template directory
+        if os.path.isdir(name):
+            self.dir = name
+            self.name = "post.html"
+        else:
+            self.name = name
+            self.dir = dir or templates_folder()
         self.env = Environment(loader=FileSystemLoader(self.dir))
 
     def render(self, **data) -> str:
