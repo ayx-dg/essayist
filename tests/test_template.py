@@ -108,3 +108,57 @@ def test_jinja2_template_bare_name_uses_bundled():
     html = t.render(title="T", heading="H", paragraphs="<p>b</p>")
     assert "T" in html
     assert "<p>b</p>" in html
+
+
+# --- PandocTemplate structured data ----------------------------------------
+
+
+def test_pandoc_template_iterates_list_of_dicts(tmp_path):
+    """$for$ loop works with list-of-dict passed via --metadata-file."""
+    tpl = tmp_path / "idx.html"
+    tpl.write_text("$for(items)$<li>$it.name$</li>\n$endfor$")
+    out = PandocTemplate(path=str(tpl)).render(
+        body="", items=[{"name": "Alice"}, {"name": "Bob"}]
+    )
+    assert "<li>Alice</li>" in out
+    assert "<li>Bob</li>" in out
+
+
+def test_pandoc_template_iterates_simple_list(tmp_path):
+    """$for$ loop works with a plain list via --metadata-file."""
+    tpl = tmp_path / "list.html"
+    tpl.write_text("$for(tags)$[$it$] $endfor$")
+    out = PandocTemplate(path=str(tpl)).render(body="", tags=["python", "pandoc"])
+    assert "[python]" in out
+    assert "[pandoc]" in out
+
+
+def test_pandoc_template_mixed_simple_and_complex(tmp_path):
+    """Simple vars use -V, complex vars use --metadata-file."""
+    tpl = tmp_path / "mix.html"
+    tpl.write_text("<h1>$title$</h1>\n$for(items)$<p>$it$</p>\n$endfor$")
+    out = PandocTemplate(path=str(tpl)).render(
+        body="", title="Hello", items=["a", "b"]
+    )
+    assert "<h1>Hello</h1>" in out
+    assert "<p>a</p>" in out
+    assert "<p>b</p>" in out
+
+
+def test_pandoc_template_dict_access(tmp_path):
+    """Dict field access works in pandoc templates."""
+    tpl = tmp_path / "dict.html"
+    tpl.write_text("$for(people)$- $it.first$ $it.last$\n$endfor$")
+    out = PandocTemplate(path=str(tpl)).render(
+        body="", people=[{"first": "John", "last": "Doe"}]
+    )
+    assert "John Doe" in out
+
+
+def test_pandoc_template_no_complex_still_uses_v(tmp_path):
+    """When all values are simple, -V is used (no metadata-file)."""
+    tpl = tmp_path / "simple.html"
+    tpl.write_text("$title$ - $body$")
+    out = PandocTemplate(path=str(tpl)).render(body="content", title="T")
+    assert "T -" in out
+    assert "content" in out

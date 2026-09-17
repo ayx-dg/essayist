@@ -58,8 +58,11 @@ class Jinja2Template(Template):
 class PandocTemplate(Template):
     """A Pandoc template file.
 
-    ``body`` is the Markdown text. Every other key becomes a Pandoc variable
-    (``-V key:value``). With no file, Pandoc uses its own default template.
+    ``body`` is the Markdown text. Every other key becomes a Pandoc variable.
+    Simple values (str/int/bool) use ``-V key:value``.
+    Complex values (list/dict) use ``--metadata-file`` so pandoc can iterate
+    over them in ``$for(...)$$`` template loops.
+    With no file, Pandoc uses its own default template.
     """
 
     def __init__(self, path: str | None = None, pandoc_args: list[str] | None = None) -> None:
@@ -67,12 +70,42 @@ class PandocTemplate(Template):
         self.pandoc_args = list(pandoc_args or [])
 
     def render(self, **data) -> str:
+        import os
+        import tempfile
+
+        import yaml
+
         data = dict(data)
         body = data.pop("body", "")
         flags = list(self.pandoc_args)
+
+        simple: dict[str, str] = {}
+        complex_data: dict = {}
         for key, value in data.items():
-            if value is not None:
-                flags += ["-V", f"{key}:{value}"]
+            if value is None:
+                continue
+            if isinstance(value, (str, int, float, bool)):
+                simple[key] = str(value)
+            else:
+                complex_data[key] = value
+
+        for key, value in simple.items():
+            flags += ["-V", f"{key}:{value}"]
+
+        meta_file = None
+        if complex_data:
+            meta_file = tempfile.NamedTemporaryFile(
+                "w", suffix=".yaml", delete=False, encoding="utf-8"
+            )
+            yaml.dump(complex_data, meta_file, allow_unicode=True, default_flow_style=False)
+            meta_file.close()
+            flags.append(f"--metadata-file={meta_file.name}")
+
         if self.path:
             flags.append(f"--template={self.path}")
-        return pandoc(body, flags)
+
+        try:
+            return pandoc(body, flags)
+        finally:
+            if meta_file:
+                os.remove(meta_file.name)
