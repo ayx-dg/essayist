@@ -42,7 +42,7 @@ The normal setup is two objects:
 | home | `markdown/index.md` | `public/index.html` |
 
 ```python
-from essayist import Blog, Jinja2Template
+from essayist import Blog, PandocTemplate
 
 # 1. the posts
 posts = Blog(
@@ -53,14 +53,14 @@ posts = Blog(
     pandoc_args=["--mathml", "--toc"],
 )
 posts.build()
-posts.build_index(title="All Posts")
+posts.build_index(template=PandocTemplate("index.html"))
 posts.build_rss()
 
 # 2. the home page
 home = Blog(
     source="markdown/index.md",
     output="public/index.html",
-    template=Jinja2Template("home.html"),
+    template=PandocTemplate("home.html"),
 )
 home.build()
 ```
@@ -76,7 +76,7 @@ A full example is in [`example.py`](example.py).
 |---------|---------|--------------|
 | `source` | — | Markdown file or folder to read |
 | `output` | — | HTML file or folder to write |
-| `template` | `post.html` | Template that writes the page |
+| `template` | `post.html` | `Jinja2Template` or `PandocTemplate` for pages |
 | `filters` | `[]` | Pandoc filters |
 | `filter_dir` | none | Folder scanned for `*.lua` filters |
 | `pandoc_args` | `[]` | Extra Pandoc flags, like `["--mathml"]` |
@@ -136,8 +136,13 @@ tags: [a, b]          # optional
 publish: public       # public | draft | unlisted
 maillist_title: ...   # optional, mail comment link
 google_group_link: .. # optional, link to the mail thread
+author: Alice         # optional, custom variable
+category: coding      # optional, custom variable
 ---
 ```
+
+essayist uses `title`, `date`, `tags`, and `publish` from the block. Any other
+fields are custom variables — they are passed to the template via `build()`.
 
 | `publish` | Page written | In the list | In the feed |
 |-----------|--------------|-------------|-------------|
@@ -166,27 +171,103 @@ from essayist import Jinja2Template, PandocTemplate
 Jinja2Template("post.html")                    # file inside essayist
 Jinja2Template("post.html", dir="templates")   # your own file
 PandocTemplate()                               # Pandoc default template
-PandocTemplate(path="page.html")               # your Pandoc template
+PandocTemplate("page.html")                    # your Pandoc template
+PandocTemplate("page.html", dir="templates")   # your file in a folder
 ```
 
-With `PandocTemplate`, `body` is the Markdown. Every other key becomes a Pandoc
-variable (`-V key:value`).
+### Jinja2 templates
 
-These Jinja2 files ship with essayist:
+Use `{{ variable }}` for values and `{% for %}` for loops:
 
-| File | Use |
-|------|-----|
-| `header.html` | the `<head>` block |
-| `footer.html` | the page footer |
-| `post.html` | one post |
-| `index.html` | the list page |
-| `home.html` | the home page |
+```html
+<h1>{{ title }}</h1>
+<ul>
+{% for post in posts %}
+  <li><a href="{{ post.html_path }}">{{ post.title }}</a></li>
+{% endfor %}
+</ul>
+```
 
-To use your own files, set `template=` **and** copy all five files. essayist
-does not fall back to the ones it comes with. Find them with:
+Include other files with `{% include "header.html" %}`.
 
-```bash
-python -c "from essayist.core import templates_folder; print(templates_folder())"
+### Pandoc templates
+
+Use `$variable$` for values and `$for(list)$...$endfor$` for loops:
+
+```html
+<h1>$title$</h1>
+<ul>
+$for(posts)$
+  <li><a href="$posts.html_path$">$posts.title$</a></li>
+$endfor$
+</ul>
+```
+
+#### Partials
+
+Include subtemplates with `$name()$`. Partials are files in the same directory
+as the main template:
+
+```html
+$footer()$
+```
+
+Pandoc's built-in partials (like `$styles.html()$`) are also available.
+
+#### Variables
+
+Simple values (strings, numbers) are passed as `-V key:value`.
+
+Complex values (lists, dicts) are passed via `--metadata-file` as YAML, enabling
+`$for$` loops over structured data.
+
+`PandocTemplate.render()` accepts both `body` and `paragraphs` as the content
+to render.
+
+## Blog methods
+
+| Call | What it writes |
+|------|----------------|
+| `blog.build()` | one page per source file |
+| `blog.build_index()` | `index.html` — a list of public posts |
+| `blog.build_rss()` | `rss.xml` — the feed |
+| `blog.scan()` | reads the source files and returns the list |
+
+### Custom variables
+
+Pass extra variables to any build method. They become available in the template:
+
+```python
+blog.build(custom_var="anything")
+blog.build_index(template=PandocTemplate("index.html"), extra="value")
+```
+
+In the template, use `$custom_var$` (Pandoc) or `{{ custom_var }}` (Jinja2).
+
+### build_index
+
+`build_index()` accepts a custom template:
+
+```python
+from essayist import PandocTemplate
+
+blog.build_index(template=PandocTemplate("my-index.html"))
+```
+
+The template receives these variables:
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `posts` | list of dicts | public posts (reversed chronological) |
+| `title` | str | page title (default: "Index") |
+| `blogname` | str | the blog's `name` setting |
+
+Each post in the list has: `title`, `date`, `ctime`, `html_path`.
+
+### build_rss
+
+```python
+blog.build_rss(path="public/posts/rss.xml")
 ```
 
 ## Pandoc filters

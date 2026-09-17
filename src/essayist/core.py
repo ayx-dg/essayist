@@ -215,7 +215,7 @@ class Blog:
 
     # --- writing ---------------------------------------------------------
 
-    def render(self, text: str, post: dict | None = None) -> str:
+    def render(self, text: str, post: dict | None = None, **kwargs) -> str:
         """Turn one Markdown file into one finished page."""
         meta = top_block(text) or {}
         title = str(meta.get("title", ""))
@@ -232,6 +232,7 @@ class Blog:
             google_group_id=self.google_group,
             maillist_title=meta.get("maillist_title"),
             google_group_link=meta.get("google_group_link"),
+            **kwargs,
         )
 
     def _neighbours(self, post: dict):
@@ -265,7 +266,7 @@ class Blog:
                 os.makedirs(os.path.dirname(target), exist_ok=True)
                 shutil.copy2(src, target)
 
-    def build(self) -> "Blog":
+    def build(self, **kwargs) -> "Blog":
         """Render every source file."""
         self.scan()
         if os.path.isdir(self.source):
@@ -278,7 +279,7 @@ class Blog:
                     except FileNotFoundError:
                         pass
                 continue
-            write(self._out_path(post), self.render(read(post["path"]), post))
+            write(self._out_path(post), self.render(read(post["path"]), post, **kwargs))
         if self.css:
             shutil.copy2(self.css, os.path.join(self.out_dir, "style-note.css"))
         return self
@@ -291,7 +292,7 @@ class Blog:
             return Jinja2Template(name, dir=self.template_dir)
         return Jinja2Template(name)
 
-    def build_index(self, path: str | None = None, title: str = "Index", template=None) -> str:
+    def build_index(self, path: str | None = None, title: str = "Index", template=None, **kwargs) -> str:
         """Write a page that lists every public post. Returns its path."""
         from .template import Jinja2Template
 
@@ -302,7 +303,7 @@ class Blog:
             {"title": p["title"], "date": p["date"], "ctime": p["ctime"], "html_path": p["html_path"]}
             for p in self._public()
         ]
-        write(out, template.render(posts=posts[::-1], title=title, blogname=self.name))
+        write(out, template.render(posts=posts[::-1], title=title, blogname=self.name, **kwargs))
         return out
 
     def build_rss(self, path: str | None = None) -> str:

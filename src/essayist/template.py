@@ -76,7 +76,7 @@ class PandocTemplate(Template):
         import yaml
 
         data = dict(data)
-        body = data.pop("body", "")
+        body = data.pop("body", "") or data.pop("paragraphs", "")
         flags = list(self.pandoc_args)
 
         simple: dict[str, str] = {}
