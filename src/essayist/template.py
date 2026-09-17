@@ -34,13 +34,21 @@ class Jinja2Template(Template):
         from jinja2 import Environment, FileSystemLoader
         import os
 
-        # If name is a directory path, use it as template directory
-        if os.path.isdir(name):
-            self.dir = name
+        # Resolve relative paths against CWD so that
+        # Jinja2Template("./template/home.html") works from the project root.
+        resolved = os.path.abspath(name)
+
+        if os.path.isdir(resolved):
+            self.dir = resolved
             self.name = "post.html"
+        elif os.path.isfile(resolved):
+            self.dir = os.path.dirname(resolved)
+            self.name = os.path.basename(resolved)
         else:
+            # Bare template name like "post.html" — look in explicit dir or bundled defaults
             self.name = name
-            self.dir = dir or templates_folder()
+            self.dir = os.path.abspath(dir) if dir else templates_folder()
+
         self.env = Environment(loader=FileSystemLoader(self.dir))
 
     def render(self, **data) -> str:
