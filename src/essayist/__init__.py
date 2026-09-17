@@ -8,7 +8,7 @@ from __future__ import annotations
 from .core import Blog, pandoc, read, text_file_to_string, top_block, write
 from .template import Jinja2Template, PandocTemplate, Template
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 __all__ = [
     "Blog",

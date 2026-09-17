@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "essayist"
-version = "0.2.6"
+version = "0.2.7"
 description = "Turn Markdown files into a blog with Pandoc and Jinja2."
 readme = "README.md"
 requires-python = ">=3.10"
