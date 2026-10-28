@@ -127,10 +127,12 @@ class Blog:
         google_group: str = "",
         css: str | None = None,
         filter_dir: str | None = None,
+        **kwargs,
     ):
+        from .template import Jinja2Template
+
         self.source = source
         self.output = output
-        self.template = template
         self.filters = list(filters)
         self.pandoc_args = list(pandoc_args)
         self.name = name
@@ -139,10 +141,11 @@ class Blog:
         self.css = css
         self.filter_dir = filter_dir
         self.posts: list[dict] = []
-        if template is not None and hasattr(template, 'dir') and os.path.isdir(template.dir):
-            self.template_dir = template.dir
-        else:
-            self.template_dir = None
+        self.template_vars = kwargs
+        if template is not None and not isinstance(template, Jinja2Template):
+            template = Jinja2Template(template)
+        self.template = template
+        self.template_dir = template.dir if template is not None else None
 
     # --- where things go -------------------------------------------------
 
@@ -215,7 +218,7 @@ class Blog:
 
     # --- writing ---------------------------------------------------------
 
-    def render(self, text: str, post: dict | None = None, **kwargs) -> str:
+    def render(self, text: str, post: dict | None = None) -> str:
         """Turn one Markdown file into one finished page."""
         meta = top_block(text) or {}
         title = str(meta.get("title", ""))
@@ -232,7 +235,7 @@ class Blog:
             google_group_id=self.google_group,
             maillist_title=meta.get("maillist_title"),
             google_group_link=meta.get("google_group_link"),
-            **kwargs,
+            **self.template_vars,
         )
 
     def _neighbours(self, post: dict):
@@ -266,7 +269,7 @@ class Blog:
                 os.makedirs(os.path.dirname(target), exist_ok=True)
                 shutil.copy2(src, target)
 
-    def build(self, **kwargs) -> "Blog":
+    def build(self) -> "Blog":
         """Render every source file."""
         self.scan()
         if os.path.isdir(self.source):
@@ -279,7 +282,7 @@ class Blog:
                     except FileNotFoundError:
                         pass
                 continue
-            write(self._out_path(post), self.render(read(post["path"]), post, **kwargs))
+            write(self._out_path(post), self.render(read(post["path"]), post))
         if self.css:
             shutil.copy2(self.css, os.path.join(self.out_dir, "style-note.css"))
         return self
@@ -292,7 +295,7 @@ class Blog:
             return Jinja2Template(name, dir=self.template_dir)
         return Jinja2Template(name)
 
-    def build_index(self, path: str | None = None, title: str = "Index", template=None, **kwargs) -> str:
+    def build_index(self, path: str | None = None, title: str = "Index", template=None) -> str:
         """Write a page that lists every public post. Returns its path."""
         from .template import Jinja2Template
 
@@ -303,7 +306,7 @@ class Blog:
             {"title": p["title"], "date": p["date"], "ctime": p["ctime"], "html_path": p["html_path"]}
             for p in self._public()
         ]
-        write(out, template.render(posts=posts[::-1], title=title, blogname=self.name, **kwargs))
+        write(out, template.render(posts=posts[::-1], title=title, blogname=self.name, **self.template_vars))
         return out
 
     def build_rss(self, path: str | None = None) -> str:
