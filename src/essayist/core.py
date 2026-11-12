@@ -129,7 +129,8 @@ class Blog:
         filter_dir: str | None = None,
         **kwargs,
     ):
-        from .template import Jinja2Template
+        from .template import Jinja2Template, PandocTemplate
+
 
         self.source = source
         self.output = output
@@ -142,10 +143,12 @@ class Blog:
         self.filter_dir = filter_dir
         self.posts: list[dict] = []
         self.template_vars = kwargs
-        if template is not None and not isinstance(template, Jinja2Template):
-            template = Jinja2Template(template)
+        #if template is not None and not isinstance(template, Jinja2Template, PandocTemplate):
+        #    template = Jinja2Template(template)
         self.template = template
-        self.template_dir = template.dir if template is not None else None
+
+        # TODO. template_dir seems to do unused? check whether it can be removed 
+        #self.template_dir = template.dir if template is not None else None
 
     # --- where things go -------------------------------------------------
 
@@ -287,20 +290,20 @@ class Blog:
             shutil.copy2(self.css, os.path.join(self.out_dir, "style-note.css"))
         return self
 
-    def _make_template(self, name: str) -> Jinja2Template:
-        """Create a Jinja2Template, falling back to essayist defaults if not found."""
-        from .template import Jinja2Template
-
-        if self.template_dir and os.path.isfile(os.path.join(self.template_dir, name)):
-            return Jinja2Template(name, dir=self.template_dir)
-        return Jinja2Template(name)
-
+#   # def _make_template(self, name: str) -> Jinja2Template:
+#        """Create a Jinja2Template, falling back to essayist defaults if not found."""
+#        from .template import Jinja2Template
+#
+#        if self.template_dir and os.path.isfile(os.path.join(self.template_dir, name)):
+#            return Jinja2Template(name, dir=self.template_dir)
+#   #     return Jinja2Template(name)
+#
     def build_index(self, path: str | None = None, title: str = "Index", template=None) -> str:
         """Write a page that lists every public post. Returns its path."""
         from .template import Jinja2Template
 
         if template is None:
-            template = self._make_template("index.html")
+            raise ValueError('Before building index, you need a template for this')
         out = path or os.path.join(self.out_dir, "index.html")
         posts = [
             {"title": p["title"], "date": p["date"], "ctime": p["ctime"], "html_path": p["html_path"]}
@@ -355,7 +358,7 @@ class Blog:
         if isinstance(template_name, Jinja2Template):
             template = template_name
         else:
-            template = self._make_template(template_name)
+            raise ValueError("You need to pecify a template.")
 
         prev_post, next_post = (None, None)
 
